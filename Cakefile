@@ -1,5 +1,5 @@
 
-require 'flour'
+# require 'flour'
 spawn = require 'win-spawn'
 
 doMochaTest = (watch=no) ->
@@ -9,6 +9,5 @@ doMochaTest = (watch=no) ->
     spawn 'mocha', args, {stdio: 'inherit'}
 
 task 'watch:test', 'test continuously with mocha', -> doMochaTest yes
-
 task 'test', 'test with mocha', -> doMochaTest no
     
