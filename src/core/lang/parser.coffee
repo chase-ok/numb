@@ -1,6 +1,7 @@
 
 
 {Parser} = require 'jison'
+_ = require 'underscore'
 
 rules = []
 
@@ -10,9 +11,10 @@ symRule = (symbol, regex) ->
     asString = regex.toString()
     rule asString[1...asString.length-1], "return '#{symbol}';"
 
-rule /\s+/, '/* whitespace */'
+rule '\\s+', '/* whitespace */'
+rule '$',   'return "EOF"'
 
-symRule 'NUMBER',     /(?:0|[1-9]\d*)(?:\.\d*)?(?:[eE][+\-]?\d+)?/
+symRule 'NUMBER',     /(?:0|[1-9]\d*)(?:\.\d*)?(?:[eE][+\-]?\d+)?\b/
 symRule 'IDENTIFIER', /[$A-Za-z_\x7f-\uffff][$\w\x7f-\uffff]*/
 symRule 'STRING',     /"(\\.|[^\\"])*"|'(\\.|[^\\'])*'/
 
@@ -24,6 +26,9 @@ symRule ')', /\)/
 
 symRule '[', /\[/
 symRule ']', /\]/
+
+symRule '+', /\+/
+symRule '-', /-/
 
 symRule 'UNARY_MATH', /[!|~]/
 symRule 'LOGIC', /&&|\|\||&|\||\^/
@@ -85,6 +90,10 @@ o = (patternString, action, options) ->
 # `Expression`.
 grammar =
 
+  Root: [
+      o 'Expression EOF', -> $1
+  ]
+
   Expression: [
     o 'Value'
     o 'Invocation'
@@ -93,14 +102,14 @@ grammar =
 
   # A literal identifier, a variable name or property.
   Identifier: [
-    o 'IDENTIFIER',                             -> new Literal $1
+    o 'IDENTIFIER',                             -> new Identifier $1
   ]
 
   Literal: [
     o 'Identifier'
     o 'Array'
-    o 'NUMBER',                                 -> new Literal $1
-    o 'STRING',                                 -> new Literal $1
+    o 'NUMBER',                                 -> new NumberNode $1
+    o 'STRING',                                 -> new StringNode $1
   ]
 
   Value: [
@@ -113,18 +122,18 @@ grammar =
   # The general group of accessors into an object, by property, by prototype
   # or by array index or slice.
   Access: [
-    o '. Identifier',                          -> new Access $2
+    o '. Identifier',                           -> new Access $2
     o 'Index',
   ]
 
   # Indexing into an object or array using bracket notation.
   Index: [
-    o '[ Expression ]',       -> $2
+    o '[ Expression ]',                         -> new Index $2
   ]
 
   # Ordinary function invocation, or a chained series of calls.
   Invocation: [
-    o 'Value Arguments',                   -> new Call $1, $2
+    o 'Value Arguments',                        -> new Call $1, $2
     o 'Invocation Arguments',                   -> new Call $1, $2
   ]
 
@@ -136,8 +145,8 @@ grammar =
 
   # The array literal.
   Array: [
-    o '[ ]',                                    -> new Arr []
-    o '[ ArgList OptComma ]',                   -> new Arr $2
+    o '[ ]',                                    -> new ArrayNode []
+    o '[ ArgList OptComma ]',                   -> new ArrayNode $2
   ]
 
   # The **ArgList** is both the list of objects passed into a function call,
@@ -159,18 +168,18 @@ grammar =
   # -type rule, but in order to make the precedence binding possible, separate
   # rules are necessary.
   Operation: [
-    o 'UNARY_MATH Expression',                  -> new Op $1 , $2
-    o '- Expression',                      (-> new Op '-', $2), prec: 'UNARY_MATH'
-    o '+ Expression',                      (-> new Op '+', $2), prec: 'UNARY_MATH'
+    o 'UNARY_MATH Expression',                  -> new UnaryOp $1 , $2
+    o '- Expression',                          (-> new UnaryOp '-', $2), prec: 'UNARY_MATH'
+    o '+ Expression',                          (-> new UnaryOp '+', $2), prec: 'UNARY_MATH'
 
-    o 'Expression + Expression',               -> new Op '+' , $1, $3
-    o 'Expression - Expression',               -> new Op '-' , $1, $3
+    o 'Expression + Expression',               -> new BinaryOp '+', $1, $3
+    o 'Expression - Expression',               -> new BinaryOp '-', $1, $3
 
-    o 'Expression MATH    Expression',         -> new Op $2, $1, $3
-    o 'Expression **      Expression',         -> new Op $2, $1, $3
-    o 'Expression SHIFT   Expression',         -> new Op $2, $1, $3
-    o 'Expression COMPARE Expression',         -> new Op $2, $1, $3
-    o 'Expression LOGIC   Expression',         -> new Op $2, $1, $3
+    o 'Expression MATH    Expression',         -> new BinaryOp $2, $1, $3
+    o 'Expression **      Expression',         -> new BinaryOp $2, $1, $3
+    o 'Expression SHIFT   Expression',         -> new BinaryOp $2, $1, $3
+    o 'Expression COMPARE Expression',         -> new BinaryOp $2, $1, $3
+    o 'Expression LOGIC   Expression',         -> new BinaryOp $2, $1, $3
   ]
 
 
@@ -209,17 +218,25 @@ for name, alternatives of grammar
   grammar[name] = for alt in alternatives
     for token in alt[0].split ' '
       tokens.push token unless grammar[token]
-    alt[1] = "return #{alt[1]}" if name is 'Expression'
+    alt[1] = "return #{alt[1]}" if name is 'Root'
     alt
+tokens = _.unique tokens
 
 # Initialize the **Parser** with our list of terminal **tokens**, our **grammar**
 # rules, and the name of the root. Reverse the operators because Jison orders
 # precedence from low to high, and we have it high to low
 # (as in [Yacc](http://dinosaur.compilertools.net/yacc/index.html)).
 parser = new Parser
+  lex: {rules}
   tokens      : tokens.join ' '
   bnf         : grammar
   operators   : operators.reverse()
-  startSymbol : 'Expression'
+  startSymbol : 'Root'
+  debug: yes
 
-console.log parser.generate()
+#console.log parser.generate()
+console.log {rules}
+console.log {grammar}
+
+parser.yy = require './ast'
+console.log parser.parse('134 + abc').toString()
