@@ -1,6 +1,5 @@
 
 {Parser} = require 'jison'
-_ = require 'underscore'
 
 # Derived mostly from the CoffeeScript parser
 
@@ -168,10 +167,18 @@ parser = new Parser
     operators: operators.reverse()
     startSymbol: 'Root'
 
+generate = ->
+    fs = require 'fs'
+    code = parser.generateCommonJSModule()
+    path = "#{__dirname}/parser.generated.js"
+    fs.writeFileSync path, code
+
 if require.main is module
-    console.log parser.generateModule()
+    generate()
 else
+    {parser, parse} = require './parser.generated'
+    console.log parser, parse
     parser.yy = require './ast'
-    exports = parser
+    exports.parse = parse
 
 
