@@ -181,4 +181,3 @@ else
     parser.yy = require './ast'
     exports.parse = parse
 
-
