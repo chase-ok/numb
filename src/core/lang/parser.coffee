@@ -168,5 +168,10 @@ parser = new Parser
     operators: operators.reverse()
     startSymbol: 'Root'
 
-parser.yy = require './ast'
-console.log parser.parse('134 + abc').toString()
+if require.main is module
+    console.log parser.generateModule()
+else
+    parser.yy = require './ast'
+    exports = parser
+
+
