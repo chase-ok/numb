@@ -60,13 +60,16 @@ exports.Container = class Container extends Node
 
     printToTree: (printer) ->
         super printer
-        printer.children -> eachChild (child) ->
+        printer.children => @eachChild (child) ->
             child.printToTree printer
 
 
 exports.Literal = class Literal extends Node
 
     constructor: (@raw) ->
+
+    printToTree: (printer) ->
+        printer.node "#{@constructor.name} #{@raw}"
 
 
 exports.NumberNode = class NumberNode extends Literal
@@ -130,7 +133,7 @@ exports.UnaryOp = class UnaryOp extends Container
 
     printToTree: (printer) ->
         printer.node "UnaryOp #{@op}"
-        printer.children -> @expr.printToTree printer
+        printer.children => @expr.printToTree printer
 
 
 exports.BinaryOp = class BinaryOp extends Container
@@ -141,7 +144,7 @@ exports.BinaryOp = class BinaryOp extends Container
 
     printToTree: (printer) ->
         printer.node "BinaryOp #{@op}"
-        printer.children ->
+        printer.children =>
             @left.printToTree printer
             @right.printToTree printer
 
