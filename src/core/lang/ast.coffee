@@ -4,6 +4,25 @@ _ = require 'underscore'
 
 exports.addLocationDataFn = addLocationDataFn
 
+
+class TreePrinter
+    constructor: (@indentIncr=4) ->
+        @lines = []
+        @indentLevel = 0
+
+    node: (line) ->
+        @lines.push (' ' for x in [0...@indentLevel]).join(' ') + line
+
+    children: (childrenFunc) ->
+        old = @indentLevel
+        @indentLevel += @indentIncr
+        childrenFunc()
+        @indentLevel = old
+
+    toString: ->
+        @lines.join '\n'
+
+
 exports.Node = class Node
 
     # For this node and all descendents, set the location data to `locationData`
@@ -12,11 +31,16 @@ exports.Node = class Node
         return this if @locationData
         @locationData = locationData
 
-    # Throw a SyntaxError associated with this node's location.
     error: (message) ->
         throwSyntaxError message, @locationData
 
-    toString: -> '<Node>'
+    toString: ->
+        printer = new TreePrinter()
+        @printToTree printer
+        printer.toString()
+       
+    printToTree: (printer) ->
+        printer.node @constructor.name
 
 
 exports.Container = class Container extends Node
@@ -34,24 +58,22 @@ exports.Container = class Container extends Node
         @eachChild (child) ->
             child.updateLocationDataIfMissing locationData
 
+    printToTree: (printer) ->
+        super printer
+        printer.children -> eachChild (child) ->
+            child.printToTree printer
+
 
 exports.Literal = class Literal extends Node
 
-    type: 'Literal'
-
     constructor: (@raw) ->
-
-    toString: -> "<#{@type} [raw=#{@raw}]>"
 
 
 exports.NumberNode = class NumberNode extends Literal
-    type: 'Number'
 
 exports.StringNode = class StringNode extends Literal
-    type: 'String'
 
 exports.Identifier = class Identifier extends Literal
-    type: 'Identifier'
 
 
 exports.ArrayNode = class ArrayNode extends Container
@@ -59,8 +81,6 @@ exports.ArrayNode = class ArrayNode extends Container
     constructor: (@values) ->
 
     children: ['values']
-
-    toString: -> "<Array [values=#{@values}]>"
 
 
 exports.Value = class Value extends Container
@@ -73,16 +93,12 @@ exports.Value = class Value extends Container
         @properties = @properties.concat property
         this
 
-    toString: -> "<Value [value=#{@value}, properties=#{@properties}]>"
-
 
 exports.Access = class Access extends Container
 
-    constructor: (@field) ->
+    constructor: (@property) ->
 
-    children: ['field']
-
-    toString: -> "<Access [field=#{@field}]>"
+    children: ['property']
 
 
 exports.Call = class Call extends Container
@@ -91,16 +107,12 @@ exports.Call = class Call extends Container
 
     children: ['func', 'args']
 
-    toString: -> "<Call [func=#{@func}, args=#{@args}]>"
-
 
 exports.Index = class Index extends Container
 
     constructor: (@index) ->
 
     children: ['index']
-
-    toString: -> "<Index [index=#{@index}]>"
 
 
 exports.Parens = class Parens extends Container
@@ -109,8 +121,6 @@ exports.Parens = class Parens extends Container
 
     children: ['expr']
 
-    toString: -> "( #{@expr} )"
-
 
 exports.UnaryOp = class UnaryOp extends Container
 
@@ -118,7 +128,9 @@ exports.UnaryOp = class UnaryOp extends Container
 
     children: ['expr']
 
-    toString: "<UnaryOp [op=#{@op}, expr=#{@expr}]>"
+    printToTree: (printer) ->
+        printer.node "UnaryOp #{@op}"
+        printer.children -> @expr.printToTree printer
 
 
 exports.BinaryOp = class BinaryOp extends Container
@@ -127,11 +139,9 @@ exports.BinaryOp = class BinaryOp extends Container
 
     children: ['left', 'right']
 
-    toString: -> "<BinaryOp [op=#{@op}, left=#{@left}, right=#{@right}]>"
-        
-
-
-
-
-
+    printToTree: (printer) ->
+        printer.node "BinaryOp #{@op}"
+        printer.children ->
+            @left.printToTree printer
+            @right.printToTree printer
 
