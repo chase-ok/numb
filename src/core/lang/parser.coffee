@@ -177,7 +177,6 @@ if require.main is module
     generate()
 else
     {parser, parse} = require './parser.generated'
-    console.log parser, parse
-    parser.yy = require './ast'
+    exports.ast = parser.yy = require './ast'
     exports.parse = parse
 

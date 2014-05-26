@@ -6,6 +6,7 @@ exports.addLocationDataFn = addLocationDataFn
 
 
 class TreePrinter
+
     constructor: (@indentIncr=4) ->
         @lines = []
         @indentLevel = 0
@@ -42,6 +43,10 @@ exports.Node = class Node
     printToTree: (printer) ->
         printer.node @constructor.name
 
+    # ignore location data for now
+    equals: (other) ->
+        other.constructor is @constructor
+
 
 exports.Container = class Container extends Node
 
@@ -53,6 +58,11 @@ exports.Container = class Container extends Node
                 return this if fn(node) is no
         this
 
+    getChildren: ->
+        children = []
+        @eachChild (child) -> children.push child
+        children
+
     updateLocationDataIfMissing: (locationData) ->
         super locationData
         @eachChild (child) ->
@@ -63,6 +73,12 @@ exports.Container = class Container extends Node
         printer.children => @eachChild (child) ->
             child.printToTree printer
 
+    equals: (other) ->
+        return no unless super other
+        for [child, otherChild] in _.zip @getChildren(), other.getChildren()
+            return no unless child.equals otherChild
+        yes
+
 
 exports.Literal = class Literal extends Node
 
@@ -70,6 +86,9 @@ exports.Literal = class Literal extends Node
 
     printToTree: (printer) ->
         printer.node "#{@constructor.name} #{@raw}"
+
+    equals: (other) ->
+        super(other) and @raw is other.raw
 
 
 exports.NumberNode = class NumberNode extends Literal
@@ -135,6 +154,9 @@ exports.UnaryOp = class UnaryOp extends Container
         printer.node "UnaryOp #{@op}"
         printer.children => @expr.printToTree printer
 
+    equals: (other) ->
+        @op is other.op and super(other)
+
 
 exports.BinaryOp = class BinaryOp extends Container
 
@@ -147,4 +169,7 @@ exports.BinaryOp = class BinaryOp extends Container
         printer.children =>
             @left.printToTree printer
             @right.printToTree printer
+
+    equals: (other) ->
+        @op is other.op and super(other)
 
