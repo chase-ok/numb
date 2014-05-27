@@ -137,6 +137,15 @@ exports.Index = class Index extends Container
     children: ['index']
 
 
+exports.Slice = class Slice extends Container
+
+    constructor: (@start, @stop, @step) ->
+        @children = []
+        @children.push 'start' if @start?
+        @children.push 'stop' if @stop?
+        @children.push 'step' if @step?
+
+
 exports.Parens = class Parens extends Container
     
     constructor: (@expr) ->

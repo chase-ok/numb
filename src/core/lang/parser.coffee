@@ -19,6 +19,7 @@ symRule 'STRING',     /"(\\.|[^\\"])*"|'(\\.|[^\\'])*'/
 
 symRule '.', /\./
 symRule ',', /\,/
+symRule ':', /:/
 
 symRule '(', /\(/
 symRule ')', /\)/
@@ -99,6 +100,23 @@ grammar =
 
     Index: [
         o '[ Expression ]', -> new Index $2
+        o '[ Slice ]', -> new Index $2
+    ]
+
+    Slice: [
+        o 'Expression : Expression : Expression', -> new Slice $1, $3, $5
+        o 'Expression : Expression OptSemi', -> new Slice $1, $3, null
+        o ': Expression : Expression', -> new Slice null, $2, $4
+        o 'Expression : : Expression', -> new Slice $1, null, $4
+        o 'Expression : OptSemi', -> new Slice $1, null, null
+        o ': Expression OptSemi', -> new Slice null, $2, null
+        o ': : Expression', -> new Slice null, null, $3
+        o ': OptSemi', -> new Slice null, null, null
+    ]
+
+    OptSemi: [
+        o ''
+        o ':'
     ]
 
     Invocation: [
@@ -114,6 +132,11 @@ grammar =
     Array: [
         o '[ ]', -> new ArrayNode []
         o '[ ArgList OptComma ]', -> new ArrayNode $2
+    ]
+
+    OptComma: [
+        o ''
+        o ','
     ]
 
     ArgList: [
