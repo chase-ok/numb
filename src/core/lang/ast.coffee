@@ -132,9 +132,9 @@ exports.Call = class Call extends Container
 
 exports.Index = class Index extends Container
 
-    constructor: (@index) ->
+    constructor: (@items) ->
 
-    children: ['index']
+    children: ['items']
 
 
 exports.Slice = class Slice extends Container

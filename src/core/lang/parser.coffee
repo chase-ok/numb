@@ -30,11 +30,11 @@ symRule ']', /\]/
 symRule '+', /\+/
 symRule '-', /-/
 
-symRule 'UNARY', /[!|~]/
+symRule 'UNARY', /!(?!=)|~/
 symRule 'LOGIC', /&&|\|\||&|\||\^/
 symRule 'SHIFT', />>>|>>|<</
 
-symRule 'COMPARE', /\=\=|!\=|<|>|<\=|>\=/
+symRule 'COMPARE', /\=\=|!\=|<(?!=)|>(?!=)|<\=|>\=/
 symRule 'MATH', /\*|\/|%/
 
 
@@ -99,8 +99,17 @@ grammar =
     ]
 
     Index: [
-        o '[ Expression ]', -> new Index $2
-        o '[ Slice ]', -> new Index $2
+        o '[ IndexList ]', -> new Index $2
+    ]
+
+    IndexList: [
+        o 'IndexItem', -> [$1]
+        o 'IndexList , IndexItem', -> $1.concat $3
+    ]
+
+    IndexItem: [
+        o 'Expression'
+        o 'Slice'
     ]
 
     Slice: [

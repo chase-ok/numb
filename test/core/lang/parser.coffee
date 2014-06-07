@@ -29,6 +29,11 @@ require('chai').use (chai, utils) ->
                 "Expected\n#{@_obj.toString()}\nnot to equal\n#{node.toString()}",
                 node
 
+makeIdent = (name) -> new ast.Value new ast.Identifier name
+
+unaryOps = '! ~ + -'.split ' '
+binaryOps = '&& || & | ^ >>> >> << == != < > <= >= * / %'.split ' '
+
 describe 'parse(code)', ->
     describe 'numbers', ->
         it 'accepts integers of any length', ->
@@ -68,7 +73,7 @@ describe 'parse(code)', ->
             sample = 'a $ asAsjlhdf$a $1234 aReally_long_identifier$stringWitheveryth1ng'.split ' '
             for ident in sample
                 for node in parseWithSpace ident
-                    unvalue(node).should.eqlNode new ast.Identifier ident
+                    node.should.eqlNode makeIdent ident
 
     describe 'strings', ->
         it 'accepts single and double quoted strings', ->
@@ -116,7 +121,7 @@ describe 'parse(code)', ->
         it 'produces a Value node with an array of chained properties', ->
             value = new ast.Value new ast.Identifier 'abc'
             value.add new ast.Access new ast.Identifier 'def'
-            value.add new ast.Index new ast.Value new ast.Identifier 'ghi'
+            value.add new ast.Index [new ast.Value new ast.Identifier 'ghi']
             value.add new ast.Access new ast.Identifier 'xyz'
             parse('abc.def[ghi].xyz').should.eqlNode value
 
@@ -139,11 +144,11 @@ describe 'parse(code)', ->
         it 'produces a Slice node with start, stop, step', ->
             makeSlice = (start, stop, step) ->
                 args = []
-                for x in [start, stop, step]
-                    args.push new ast.Value new ast.Identifier x if x
+                for x in [start, stop, step] when x
+                    args.push makeIdent x
                 new ast.Slice args...
             test = (code, slice) ->
-                parse("x[#{code}]").properties[0].index.should.eqlNode slice
+                parse("x[#{code}]").properties[0].items[0].should.eqlNode slice
 
             test 'a:b:c', makeSlice 'a', 'b', 'c'
             test 'a:b', makeSlice 'a', 'b'
@@ -153,7 +158,78 @@ describe 'parse(code)', ->
             test ':a', makeSlice 'a'
             test '::a', makeSlice 'a'
             test ':', makeSlice()
-                
+    
+    describe 'multidimensional indexing', ->
+        it 'accepts comma separated lists of slices or expressions', ->
+            accept 'a[1:2, 3, 4:5, :, abc]', 'a[1:,:2]', 'a[abc,def,[1,2,3]]'
+
+        it 'rejects trailing commas', ->
+            reject 'a[1,2,]', 'a[,]'
+
+        it 'produces an Index node with an array of items', ->
+            index = new ast.Index [makeIdent('a'), makeIdent('b')]
+            parse('x[a, b]').properties[0].should.eqlNode index
+
+    describe 'function invocations', ->
+        it 'accepts invocations with any number of arguments', ->
+            accept 'a(1,2,3)', 'b()', 'c(1,2,3,4,5,6,7,8,9,10)'
+
+        it 'accepts optional trailing commas', ->
+            accept 'a(1, 2,)'
+
+        it 'accepts chains of invocations', ->
+            accept 'a()()()', 'b(1,2)(3)[4](5).x(6)', 'c(1, (b(3)(4))(5))'
+
+        it 'rejects unbalanced parentheses', ->
+            reject 'a(', 'b)', 'a(c()'
+
+        it 'produces a Call node with func and an args array', ->
+            call = new ast.Call makeIdent('f'),
+                                [makeIdent('a'), makeIdent('b')]
+            parse('f(a, b)').should.eqlNode call
+
+    describe 'parentheticals', ->
+        it 'accepts arbitrarily nested parentheticals', ->
+            accept '(a)', '((a))', '((((a))))'
+        
+        it 'rejects unbalanced parentheses and the empty ()', ->
+            reject '()', '(a', 'b)', '((b)'
+        
+        it 'produces a Parens node with the inner expression', ->
+            unvalue(parse('(a)')).should.eqlNode new ast.Parens makeIdent 'a'
+
+    describe 'unary operations', ->
+        it 'accepts the left unary ops !, ~, +, and -', ->
+            accept ("#{op} x" for op in unaryOps)...
+
+        it 'rejects the unary application of binary ops', ->
+            reject ("#{op} x" for op in binaryOps when op not in unaryOps)...
+
+        it 'produces a UnaryOp node with op and expression', ->
+            for op in unaryOps
+                node = new ast.UnaryOp op, makeIdent 'x'
+                parse("#{op}x").should.eqlNode node
+
+    describe 'binary operations', ->
+        it "accepts the binary ops #{binaryOps.join ', '}", ->
+            accept ("x #{op} y" for op in binaryOps)...
+
+        it 'rejects the binary application of unary ops', ->
+            reject ("x #{op} y" for op in unaryOps when op not in binaryOps)...
+
+        it 'produces a BinaryOp node with op and left and right', ->
+            for op in binaryOps
+                node = new ast.BinaryOp op, makeIdent('x'), makeIdent('y')
+                parse("x #{op} y").should.eqlNode node
+
+        it 'follows standard precendence rules', ->
+            # TODO: write me
+
+
+
+
+    
+
 
 
                    
