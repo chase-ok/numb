@@ -1,4 +1,31 @@
- 
+
+exports.reduceHashes = (hashes) ->
+    reduced = hashes[0]
+    `for (var i = 0, len = hashes.length; i < len; i++) {
+        reduced = ((reduced << 19) - reduced + hash)|0
+    }`
+    reduced
+
+
+class exports.TreePrinter
+
+    constructor: (@indentIncr=4) ->
+        @lines = []
+        @indentLevel = 0
+
+    node: (line) ->
+        @lines.push (' ' for x in [0...@indentLevel]).join(' ') + line
+
+    children: (childrenFunc) ->
+        old = @indentLevel
+        @indentLevel += @indentIncr
+        childrenFunc()
+        @indentLevel = old
+
+    toString: ->
+        @lines.join '\n'
+
+
 # Merge two jison-style location data objects together.
 # If `last` is not provided, this will simply return `first`.
 buildLocationData = (first, last) ->
@@ -86,3 +113,4 @@ syntaxErrorToString = ->
     #{codeLine}
     #{marker}
   """
+

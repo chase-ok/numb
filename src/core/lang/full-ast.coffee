@@ -1,27 +1,9 @@
 
 _ = require 'underscore'
-{addLocationDataFn, locationDataToString, throwSyntaxError} = require './utils'
+{addLocationDataFn, locationDataToString, throwSyntaxError, TreeParser} =
+    require './utils'
 
 exports.addLocationDataFn = addLocationDataFn
-
-
-class TreePrinter
-
-    constructor: (@indentIncr=4) ->
-        @lines = []
-        @indentLevel = 0
-
-    node: (line) ->
-        @lines.push (' ' for x in [0...@indentLevel]).join(' ') + line
-
-    children: (childrenFunc) ->
-        old = @indentLevel
-        @indentLevel += @indentIncr
-        childrenFunc()
-        @indentLevel = old
-
-    toString: ->
-        @lines.join '\n'
 
 
 exports.Node = class Node

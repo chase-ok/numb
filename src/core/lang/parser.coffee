@@ -209,6 +209,6 @@ if require.main is module
     generate()
 else
     {parser, parse} = require './parser.generated'
-    exports.ast = parser.yy = require './ast'
+    exports.ast = parser.yy = require './full-ast'
     exports.parse = parse
 

@@ -11,6 +11,7 @@
     "flour": "0.5.8",
     "win-spawn": "2.0.0",
     "underscore": "1.6.0",
-    "jison": "0.4.x"
+    "jison": "0.4.x",
+    "benchmark": "1.0.x"
   }
 }

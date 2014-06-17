@@ -33,3 +33,24 @@ exports.throwWithData = throwWithData = (message='', data={}) ->
     Error.captureStackTrace? error, throwWithData
     throw error
 
+exports.intern = (string) ->
+    new Function("return '#{string}'")()
+
+exports.makeEnum = (valuesString) ->
+    values = (exports.intern value for value in valuesString.split ' ')
+    valueObj = {}
+    toInt = {}
+    fromInt = []
+    for value, id in values
+        valueObj[value] = value
+        toInt[value] = id
+        fromInt[id] = value
+    [valueObj, toInt, fromInt]
+
+exports.enumSet = (enum_, inSetString) ->
+    setObj = {}
+    inSet = inSetString.split ' '
+    for value of enum_
+        setObj[value] = value in inSetString
+    setObj
+
