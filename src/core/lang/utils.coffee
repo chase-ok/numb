@@ -2,7 +2,7 @@
 exports.reduceHashes = (hashes) ->
     reduced = hashes[0]
     `for (var i = 0, len = hashes.length; i < len; i++) {
-        reduced = ((reduced << 19) - reduced + hash)|0
+        reduced = ((reduced << 19) - reduced + hashes[i])|0
     }`
     reduced
 
