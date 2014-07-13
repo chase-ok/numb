@@ -1,6 +1,6 @@
 
 _ = require 'underscore'
-{addLocationDataFn, locationDataToString, throwSyntaxError, TreeParser} =
+{addLocationDataFn, locationDataToString, throwSyntaxError, TreePrinter} =
     require './utils'
 
 exports.addLocationDataFn = addLocationDataFn

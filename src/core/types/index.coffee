@@ -1,11 +1,14 @@
 
+_ = require 'underscore'
 
 {Type, KINDS} = require './type'
-exports.Type = Type
-exports.KINDS = KINDS
+_.extend exports, require './type'
 
+{register} = require './registry'
+_.extend exports, require './registry'
 
-exports.Int32 = Int32 = register new Type
+console.log "shit"
+exports.Int32 = register new Type
     name: 'Int32'
     names: ['Int32', 'int', 'Integer']
     byteSize: 4
@@ -13,4 +16,3 @@ exports.Int32 = Int32 = register new Type
     kind: KINDS.SIGNED
     array: Int32Array
     jsNative: yes
-    cast: (x) -> x|0

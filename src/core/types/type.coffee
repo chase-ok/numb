@@ -18,7 +18,6 @@ exports.Type = class Type
 
         {@name, @names, @byteSize, @precision, @kind, @jsNative, @array} =
                 options
-
         if not @name
             throwWithData 'Either name or names must be specified', options
 
