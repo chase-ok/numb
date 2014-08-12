@@ -3,8 +3,11 @@
 _ = require 'underscore'
 
 KINDS = {}
-KINDS[kind] = kind for kind in 'UNSIGNED SIGNED FLOAT COMPLEX OTHER'.split ' '
+KINDS[kind] = kind for kind in 'UNSIGNED SIGNED FLOAT COMPLEX BLOB'.split ' '
 exports.KINDS = KINDS
+
+exports.VARIABLE_SIZE = VARIABLE_SIZE = 0
+exports.INF_PRECISION = INF_PRECISION = Infinity
 
 exports.Type = class Type
     constructor: (options) ->
@@ -12,33 +15,38 @@ exports.Type = class Type
             byteSize: 1
             precision: 1
             jsNative: no
-            name: options.names?[0]
-            names: [options.name]
             array: Array
+            getUnifiedType: (otherType) -> null
 
-        {@name, @names, @byteSize, @precision, @kind, @jsNative, @array} =
-                options
+        {@name, @byteSize, @precision, @kind, @jsNative, @array, @getUnifiedType} = options
         if not @name
-            throwWithData 'Either name or names must be specified', options
+            throwWithData 'Name must be specified', options
 
-        @names.push @name unless @name in @names
-        
-        if not utils.isInteger(@byteSize) or @byteSize < 1
-            throwWithData 'byteSize must be a positive integer', options
-
-        if not utils.isInteger(@precision) or @precision < 1
-            throwWithData 'precision must be a positive integer', options
-        if @precision > @byteSize
-            throwWithData 'precision must be <= byteSize', options
-        
         if @kind not of KINDS
             throwWithData 'kind must be one of KINDS', {options, KINDS}
-        @unsigned = @kind is KINDS.UNSIGNED
-        @integral = @kind in [KINDS.UNSIGNED, KINDS.SIGNED]
-        @complex = @kind is KINDS.COMPLEX
+        @isUnsigned = @kind is KINDS.UNSIGNED
+        @isIntegral = @kind in [KINDS.UNSIGNED, KINDS.SIGNED]
+        @isComplex = @kind is KINDS.COMPLEX
+        @isBlob = @kind is KINDS.BLOB
 
-        if @array.BYTES_PER_ELEMENT? and
-                @array.BYTES_PER_ELEMENT isnt @precision
-            throwWithData 'array.BYTES_PER_ELEMENT must match precision',
+        @isVariableSize = @byteSize is VARIABLE_SIZE
+        @isInfPrecision = @precision is INF_PRECISION
+
+        if @isInfPrecision and not @isVariableSize
+            throwWithData "Cannot have inf precision without variable size",
                           options
+
+        if @isBlob
+            @precision = null
+        else if not @isInfPrecision
+            if not utils.isInteger(@byteSize) or @byteSize < 1
+                throwWithData 'byteSize must be a positive integer', options
+
+            if @precision > @byteSize
+                throwWithData 'precision must be <= byteSize', options
+
+            if @array.BYTES_PER_ELEMENT? and
+                    @array.BYTES_PER_ELEMENT isnt @precision
+                throwWithData 'array.BYTES_PER_ELEMENT must match precision',
+                              options
 

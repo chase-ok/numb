@@ -6,7 +6,7 @@ _ = require 'underscore'
 
 options =
     name: 'SomeType'
-    names: ['Some', 'stype']
+    aliases: ['Some', 'stype']
     byteSize: 4
     precision: 4
     kind: KINDS.SIGNED
@@ -17,23 +17,23 @@ options =
 
 describe 'Type', ->
     describe 'new Type(options)', ->
-        it 'requires name or names to be specified', ->
-            should.throw -> new Type _.omit options, ['name', 'names']
+        it 'requires name or aliases to be specified', ->
+            should.throw -> new Type _.omit options, ['name', 'aliases']
 
-        it 'sets @name to name, defaulting to names[0]', ->
+        it 'sets @name to name, defaulting to aliases[0]', ->
             new Type(options).name.should.be.equal options.name
             new Type(_.omit options, 'name').name
-                .should.be.equal options.names[0]
+                .should.be.equal options.aliases[0]
 
-        it 'sets @names to names, defaulting to [name]', ->
-            new Type(options).names.should.be.eql options.names
-            new Type _.omit options, 'names'
-                .names.should.be.eql [options.name]
+        it 'sets @aliases to aliases, defaulting to [name]', ->
+            new Type(options).aliases.should.be.eql options.aliases
+            new Type _.omit options, 'aliases'
+                .aliases.should.be.eql [options.name]
 
-        it 'automatically includes name in @names', ->
-            names = _.without options.names, options.name
-            new Type _.defaults {names}, options
-                .names.should.include options.name
+        it 'automatically includes name in @aliases', ->
+            aliases = _.without options.aliases, options.name
+            new Type _.defaults {aliases}, options
+                .aliases.should.include options.name
 
         it 'sets @byteSize to byteSize, defaulting to 1', ->
             new Type(options).byteSize.should.be.equal options.byteSize
