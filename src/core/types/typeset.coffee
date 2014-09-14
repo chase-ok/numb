@@ -48,33 +48,20 @@ exports.TypeSet = class TypeSet
 
     get: (name) -> @_byName[name]
 
-    _linkPrecisions: ->
-        prev = null
-        for precision in _.keys(@_byPrecision).sort()
-            types = @_byPrecision[precision]
-            types.precision = precision
-            continue if precision is INF_PRECISION
-
-            prev?.next = types
-            types.prev = prev
-            prev = types
-
-        @_byPrecision[INF_PRECISION].prev = prev
-
     makeUnifyFunc: (baseType) ->
-        @_linkPrecisions()
+        if not @has baseType
+            throwWithData "baseType must be in type set", {baseType}
 
-        searchDown = (kind, prec) ->
-            prec[kind] or (prec.prev and searchDown kind, prec.prev)
-        searchUp = (kind, prec) ->
-            prec[kind] or (prec.next and searchUp kind, prec.next)
-        search = (kind, prec) ->
-            searchUp(kind, prec) or searchDown(kind, prec)
-        searchUpNext = (kind, prec) ->
-            if prec.precision is INF_PRECISION
-                prec[kind]
-            else if prec.next? then searchUp kind, prec.next
+        kindOrder = [UNSIGNED, SIGNED, FLOAT, COMPLEX]
+        getKindIndex = ({kind}) -> kindOrder.indexOf kind
 
+        precOrder = _.chain @_byPrecision
+            .keys()
+            .sortBy (p) -> if p is INF_PRECISION then Infinity else p
+            .map (p) -> +p
+            .value()
+        getPrecIndex = ({precision}) -> precOrder.indexOf precision
+        
         unifications = {}
         for other in @all()
             if baseType is other
@@ -82,33 +69,29 @@ exports.TypeSet = class TypeSet
             else if baseType.isBlob or other.isBlob
                 result = baseType.getUnifiedType(other) or
                          other.getUnifiedType(baseType)
-            else if baseType.precision is other.precision
-                prec = @_byPrecision[baseType.precision]
-
-                if baseType.isIntegral and other.isIntegral
-                    result = searchUpNext(SIGNED, prec) or search(FLOAT, prec)
-                else if baseType.isComplex or other.isComplex
-                    result = searchUpNext(COMPLEX, prec) or search(COMPLEX, prec)
-                else
-                    result = searchUpNext(FLOAT, prec) or search(FLOAT, prec)
             else
-                [low, high] = [baseType, other]
-                if low.precision > high.precision
-                    [low, high] = [high, low]
+                p = Math.max getPrecIndex(baseType), getPrecIndex(other)
+                if baseType.precision is other.precision then p++
+                p = Math.min(p, precOrder.length-1)
 
-                highPrec = @_byPrecision[high.precision]
+                k = Math.max getKindIndex(baseType), getKindIndex(other)
 
-                if high.isComplex or low.isComplex
-                    result = search COMPLEX, highPrec
-                else if not high.isIntegral or not low.isIntegral
-                    result = search FLOAT, highPrec
-                else if high.isUnsigned and not low.isUnsigned
-                    result = searchUpNext(SIGNED, highPrec) or
-                             search(FLOAT, highPrec)
-                else
-                    result = high
+                startP = p
+                startK = k
+                while not (result = @_byPrecision[precOrder[p]][kindOrder[k]])
+                    if ++p >= precOrder.length
+                        p = startP
+                        break unless ++k < kindOrder.length
 
             unifications[other.name] = result
 
         return (other) -> unifications[other.name]
+
+    clone: ->
+        cloned = new TypeSet()
+        for types, precision in @_byPrecision
+            cloned._byPrecision[precision] = _.clone types
+        cloned._byName = _.clone @_byName
+        cloned._blobs = @_blobs.slice 0
+        cloned
 

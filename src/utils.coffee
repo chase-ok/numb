@@ -9,7 +9,6 @@ exports.isNatural = (x) -> isInteger(x) and x >= 0
 exports.isNaN = isNaN
 exports.isInfinite = (x) -> not isFinite(x) and not isNaN(x)
 
-
 coffee = require 'coffee-script'
 compileCoffee = (code) -> coffee.compile code, {bare: yes}
 
@@ -24,6 +23,47 @@ exports.csFunction = (args, body) ->
     code = wrapped[header.length...wrapped.length-footer.length+1]
     new Function args, code
 
+class exports.CsFunctionBuilder
+    constructor: (@args=[]) ->
+        @_body = []
+        @_indent = ''
+        @_temp = 0
+
+    var: (name="temp") -> "#{name}$#{@_temp++}"
+
+    addArg: (arg) -> 
+        @args.push arg
+        return this
+
+    line: (line) ->
+        @_body.push @_indent + line
+        return this
+
+    lines: (lines) ->
+        @_body = @_body.concat lines
+        return this
+
+    block: (blockFunc) ->
+        oldIndent = @_indent
+        @indent()
+        blockFunc()
+        @_indent = oldIndent
+        return this
+
+    indent: ->
+        @_indent += '    '
+        return this
+
+    dedent: ->
+        @_indent = @_indent[0...@_indent.length-4]
+        return this
+
+    build: -> exports.csFunction @args, @_body.join '\n'
+
+exports.buildCsFunction = (args, cb) ->
+    builder = new exports.CsFunctionBuilder args
+    cb builder
+    builder.build()
 
 class ErrorWithData extends Error
     constructor: (@message, @data) ->
@@ -54,3 +94,5 @@ exports.enumSet = (enum_, inSetString) ->
         setObj[value] = value in inSetString
     setObj
 
+exports.repeat = (value, n) ->
+    value for x in [0...n] by 1

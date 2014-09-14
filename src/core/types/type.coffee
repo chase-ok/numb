@@ -16,7 +16,7 @@ exports.Type = class Type
             precision: 1
             jsNative: no
             array: Array
-            getUnifiedType: (otherType) -> null
+            getUnifiedType: (otherType) -> undefined
 
         {@name, @byteSize, @precision, @kind, @jsNative, @array, @getUnifiedType} = options
         if not @name
