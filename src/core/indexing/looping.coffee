@@ -2,15 +2,14 @@
 _ = require 'underscore'
 utils = require '../../utils'
 
-class exports.Looper extends utils.CsFunctionBuilder
+class FlatLooper extends utils.CsFunctionBuilder
 
-  events: 'beforeLoop beforeDimension innerFunc afterDimension
-           afterLoop'.split ' '
+  events: 'beforeLoop beforeDimension step afterDimension afterLoop'.split ' '
 
   constructor: (@nd) ->
     @_listeners = {}
     @_listeners[event] = [] for event in @events
-    super [@innerFuncVar(), @shapeVar()]
+    super [@shapeVar()]
 
   on: (event, listener) ->
     @_listeners[event].push listener
@@ -19,30 +18,32 @@ class exports.Looper extends utils.CsFunctionBuilder
   indexVar: (dimension) -> "$index#{dimension}"
   lengthVar: (dimension) -> "$length#{dimension}"
   shapeVar: -> "$shape"
-  innerFuncVar: -> "$f"
 
-  _listen: (event, listenerArgs...) ->
+  _emit: (event, listenerArgs...) ->
     for listener in @_listeners[event]
       listener listenerArgs..., this
 
   build: ->
-    for dim in [0...@nd] by 1
+    for dim in [0...@nd]
       @line "#{@lengthVar dim} = #{@shapeVar()}[#{dim}]"
-    @_listen "beforeLoop"
+    @_emit "beforeLoop"
 
-    for dim in [0...@nd] by 1
+    for dim in [0...@nd]
       @line "for #{@indexVar dim} in [0...#{@lengthVar dim}] by 1"
       @indent()
-      @_listen "beforeDimension", dim
+      @_emit "beforeDimension", dim
 
-    innerFuncArgs = []
-    @_listen "innerFunc", (arg) -> innerFuncArgs.push "(#{arg})"
-    @line "#{@innerFuncVar()}(#{innerFuncArgs.join ','})"
+    @_emit "step"
 
     for dim in [@nd-1..0] by -1
-      @_listen "afterDimension", dim
+      @_emit "afterDimension", dim
       @dedent()
 
-    @_listen "afterLoop"
+    @_emit "afterLoop"
     @line "return"
-    super()
+    return super()
+
+exports.flatLoop = (nd, callback) ->
+  looper = new FlatLooper nd
+  callback looper
+  return looper.build()

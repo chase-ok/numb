@@ -1,125 +1,84 @@
 
 _ = require 'underscore'
 utils = require '../../utils'
+{ceil} = Math
+looping = require './looping'
+{makeIndexer: makeStridedIndexer} = require './strided'
 
 class IndexerBase
-
-  broaden: (extraDimensions) ->
-    shape = utils.repeat(1, extraDimensions).concat @shape
-    strides = utils.repeat(0, extraDimensions).concat @strides
-    new (getIndexerClass @nd+extraDimensions) shape, strides, @offset
-
-  squeeze: ->
-    shape = []
-    strides = []
-    for size, i in @shape
-      continue if size is 1
-      shape.push size
-      strides.push @strides[i]
-    new (getIndexerClass shape.length) shape, strides, @offset
 
 indexerClasses = []
 
 getIndexerClass = (nd) ->
   if nd < 1
     utils.throwWithData "Number of dimensions must be greater than 1", {nd}
+  indexerClasses[nd] or= makeIndexerClass nd
 
-  unless indexerClasses[nd]?
-    indexerClasses[nd] = makeIndexerClass nd
+# TODO: turn this into a meta class!
+makeIndexerClass = (nd) -> 
+  class Indexer extends IndexerBase
 
-  return indexerClasses[nd]
+    @nd: nd
+    nd: nd
 
-indexerClasses[1] = class Indexer1D extends IndexerBase
+    constructor: 
+      if nd is 1 
+        (@shape, @offset) -> [@_shape0] = @shape
+      else
+        utils.buildCsFunction, ['shape', 'offset'], (f) ->
+          f.line "@shape = shape"
+          f.line "@offset = offset"
+          f.line "@_shape#{d} = shape[#{d}]" for d in [0...nd]
+          f.line "@_stride#{nd-2} = @_shape#{nd-1}"
+          for d in [nd-3..0] by -1
+            f.line "@_stride#{d} = @_stride#{d+1}*@_shape#{d+1}"
 
-  @nd: 1
+    flatten: utils.buildCsFunction ['indices'], (f) ->
+      f.line 'offset = @offset + indices[#{nd-1}]'
+      f.line "offset += @_stride#{d}*indices[#{d}]" for d in [0...nd-1]
+      f.line "return offset"
 
-  constructor: (@shape, @strides, @offset) ->
-    @nd = 1
-    [@_shape] = @shape
-    [@_stride] = @strides
+    index: (index) ->
+      new (getIndexerClass nd-1) @shape.slice(1), @offset + @_stride0*index
 
-  flatten: ([index]) -> @index index
+    slice: (start=0, stop=@_shape0, stride=1) ->
+      shape = @shape.slice 0
+      shape[0] = ceil((stop-start)/stride)|0
 
-  index: (index) -> @offset + @_stride*index
+      strides = @strides.slice 0
+      strides[0] *= stride
 
-  slice: (start=0, stop=@_shape, stride=1) ->
-    shape = [((stop-start)/stride)|0]
-    new Indexer1D shape, [@_stride*stride], @offset+offset
+      makeStridedIndexer shape, strides, @offset + start*@_stride0
 
-  flatForEach: (func) ->
-    offset = @offset
-    for i in [0...@_shape] by 1
-      if func offset then break
-      offset += @_stride
+    flatForEach: do ->
+      loopFunc = looping.flatLoop nd, (looper) ->
+        {flatIndex} = indexFlatLoop looper
+        looper
+          .addArg "func"
+          .on "step", -> looper.line "return if func(#{flatIndex}) is true"
+      (func) -> loopFunc @shape, this, func
 
-makeIndexerClass = (nd) -> class Indexer extends IndexerBase
+  if nd is 1
+    Indexer::flatten = ([index]) -> @offset + index
+    Indexer::index = (index) -> @offset + index
 
-  @nd: nd
-
-  constructor: (@shape, @strides, @offset) ->
-    @nd = nd
-
-  flatten: utils.buildCsFunction ['indices'], (f) ->
-    f.line 'offset = @offset'
-    f.line "offset += @strides[#{d}]*indices[#{d}]" for d in [0...nd]
-    f.line "return offset"
-
-  index: (index) ->
-    offset = @offset + @strides[0]*index
-    new (getIndexerClass nd-1) @shape.slice(1), @strides.slice(1), offset
-
-  slice: (start=0, stop=@shape[0], stride=1) ->
-    shape = @shape.slice 0
-    shape[0] = Math.ceil((stop-start)/stride)|0
-
-    strides = @strides.slice 0
-    strides[0] *= stride
-
-    new Indexer shape, strides, @offset + start*@strides[0]
-
-  flatForEach: utils.buildCsFunction ['func'], (f) ->
-    f.line "stride#{d} = @strides[#{d}]" for d in [0...nd]
-
-    for d in [0...nd]
-      offset = if d is 0 then '@offset' else "offset#{d-1}"
-      f.line "offset#{d} = #{offset}"
-      f.line "for i#{d} in [0...@shape[#{d}]] by 1"
-      f.indent()
-      if d is nd-1 then f.line "if func offset#{d} then break"
-      f.line "offset#{d} += stride#{d}"
-
-    f.dedent() for d in [0...nd]
-    f.line 'return'
+  return Indexer
 
 
-exports.makeIndexer = (shape, strides, offset=0) ->
-  nd = shape.length
+exports.makeIndexer = (shape, offset=0) ->
+  new (getIndexerClass shape.length) shape, offset
 
-  unless strides?
-    strides = new Array nd
-    strides[nd-1] = 1
-    strides[d] = strides[d+1]*shape[d+1] for d in [nd-2..0] by -1
-    # set empty dimensions to 0 stride
-    strides[d] = 0 for size, d in shape when size is 1
-
-  new (getIndexerClass nd) shape, strides, offset
-
-exports.flatLoop = (looper) ->
+exports.indexFlatLoop = indexFlatLoop = (looper) ->
   {nd} = looper
 
   indexer = looper.var "indexer"
-  strides = (looper.var "stride#{dim}" for dim in [0...nd])
-  offsets = (looper.var "offsets#{dim}" for dim in [0...nd])
+  offset = looper.var "offset"
 
   looper
     .addArg indexer
-    .on "beforeLoop", (builder) ->
-      builder.line "[#{strides.join ","}] = #{indexer}.strides"
-      builder.line "#{offsets[0]} = #{indexer}.offset"
-    .on "beforeDimension", (dim, add) ->
-      unless dim is nd-1
-        builder.line "#{offsets[dim+1]} = #{offsets[dim]}"
-    .on "afterDimension", (dim, add) ->
-      builder.line "#{offsets[dim]} += #{strides[dim]}"
+    .on "beforeLoop", ->
+      looper.line "#{offset} = #{indexer}.offset"
+    .afterDimension, (dim) ->
+      looper.line "#{offset}++" if dim is nd-1
 
-  return {flatIndex: offsets[nd-1], indexer}
+  return {flatIndex: offset, indexer}
