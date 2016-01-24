@@ -1,4 +1,3 @@
 {
-    "plugins": ["numeric-operators"],
     "presets": ["es2015", "stage-0"]
 }
