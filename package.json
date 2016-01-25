@@ -18,6 +18,7 @@
     "babel-cli": "^6.4.0",
     "babel-core": "^6.4.0",
     "babel-plugin-numeric-operators": "^0.0.0",
+    "babel-plugin-transform-runtime": "^6.4.3",
     "babel-preset-stage-0": "^6.3.13",
     "babel-register": "^6.4.3",
     "chai": "^3.4.1",
@@ -31,6 +32,10 @@
     "lodash": "^4.0.0",
     "mocha": "^2.3.4",
     "rimraf": "^2.4.3"
+  },
+  "dependencies": {
+    "babel-runtime": "6.3.x",
+    "js-combinatorics": "0.5.x"
   },
   "scripts": {
     "build": "gulp build",
